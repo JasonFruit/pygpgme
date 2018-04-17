@@ -1212,6 +1212,39 @@ pygpgme_context_export(PyGpgmeContext *self, PyObject *args)
 }
 
 static PyObject *
+pygpgme_context_export_secret(PyGpgmeContext *self, PyObject *args)
+{
+    PyObject *py_pattern, *py_keydata;
+    char **patterns = NULL;
+    gpgme_data_t keydata;
+    gpgme_error_t err;
+
+    if (!PyArg_ParseTuple(args, "OO", &py_pattern, &py_keydata))
+        return NULL;
+
+    if (parse_key_patterns(py_pattern, &patterns) < 0)
+        return NULL;
+
+    if (pygpgme_data_new(&keydata, py_keydata)) {
+        if (patterns)
+            free_key_patterns(patterns);
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+    err = gpgme_op_export_ext(self->ctx, (const char **)patterns, GPGME_EXPORT_MODE_SECRET, keydata);
+    Py_END_ALLOW_THREADS;
+
+    if (patterns)
+        free_key_patterns(patterns);
+    gpgme_data_release(keydata);
+    if (pygpgme_check_error(err))
+        return NULL;
+    Py_RETURN_NONE;
+}
+
+
+static PyObject *
 pygpgme_context_genkey(PyGpgmeContext *self, PyObject *args)
 {
     PyObject *py_pubkey = Py_None, *py_seckey = Py_None;
@@ -1412,6 +1445,7 @@ static PyMethodDef pygpgme_context_methods[] = {
     { "verify", (PyCFunction)pygpgme_context_verify, METH_VARARGS },
     { "import_", (PyCFunction)pygpgme_context_import, METH_VARARGS },
     { "export", (PyCFunction)pygpgme_context_export, METH_VARARGS },
+    { "export_secret", (PyCFunction)pygpgme_context_export_secret, METH_VARARGS },    
     { "genkey", (PyCFunction)pygpgme_context_genkey, METH_VARARGS },
     { "delete", (PyCFunction)pygpgme_context_delete, METH_VARARGS },
     { "edit", (PyCFunction)pygpgme_context_edit, METH_VARARGS },
